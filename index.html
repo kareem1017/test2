@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-<title>Runner 3D — Mobile Ramp + Leaderboard</title>
+<title>Runner 3D — Mobile + Ramp + Leaderboard (Fixed)</title>
 <style>
-html, body { height:100%; margin:0; background:#0b0f14; color:#e5e7eb; font:14px system-ui,Segoe UI,Roboto; overflow:hidden }
-#hud { position:fixed; top:12px; left:12px; z-index:10; background:rgba(0,0,0,.35); padding:8px 12px; border-radius:10px; backdrop-filter: blur(6px); }
-#hud b { font-weight:700; }
-#hint { position:fixed; bottom:12px; left:12px; opacity:.8 }
-#gameover, #menu { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:20 }
-.card { background:#111827; padding:24px 28px; border-radius:16px; text-align:center; }
-button { padding:10px 14px; border-radius:12px; border:0; background:#2563eb; color:white; font-weight:600; cursor:pointer; margin:4px }
-#mobileControls { position:fixed; bottom:20px; width:100%; display:flex; justify-content:space-between; pointer-events:none; }
-.mcBtn { background:rgba(0,0,0,0.4); padding:30px; border-radius:50%; pointer-events:auto; font-size:28px; color:white; user-select:none; }
+  html, body { height:100%; margin:0; background:#0b0f14; color:#e5e7eb; font:14px system-ui,Segoe UI,Roboto; overflow:hidden }
+  #hud { position:fixed; top:12px; left:12px; z-index:10; background:rgba(0,0,0,.35); padding:8px 12px; border-radius:10px; backdrop-filter: blur(6px); }
+  #hud b { font-weight:700; }
+  #hint { position:fixed; bottom:12px; left:12px; opacity:.8 }
+  #gameover, #menu { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:20 }
+  .card { background:#111827; padding:24px 28px; border-radius:16px; text-align:center; }
+  button { padding:10px 14px; border-radius:12px; border:0; background:#2563eb; color:white; font-weight:600; cursor:pointer; margin:4px }
+  #mobileControls { position:fixed; bottom:20px; width:100%; display:flex; justify-content:space-between; pointer-events:none; }
+  .mcBtn { background:rgba(0,0,0,0.45); padding:30px; border-radius:50%; pointer-events:auto; font-size:28px; color:white; user-select:none; }
 </style>
 </head>
 <body>
@@ -52,6 +52,7 @@ button { padding:10px 14px; border-radius:12px; border:0; background:#2563eb; co
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
+/* ---------- Three setup ---------- */
 const canvas = document.getElementById('webgl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: innerWidth>768 });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -60,25 +61,29 @@ renderer.setClearColor(0x0b0f14, 1);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
-camera.position.set(0, 4, 8);
+camera.position.set(0, 3.5, 7);
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 const dir = new THREE.DirectionalLight(0xffffff, 1.0);
 dir.position.set(5, 8, 6);
 scene.add(dir);
 
-const floorGeo = new THREE.PlaneGeometry(100, 30);
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 1 });
-const floor = new THREE.Mesh(floorGeo, floorMat);
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(120, 36),
+  new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 1 })
+);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-const playerGeo = new THREE.BoxGeometry(1,1,1);
-const playerMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness:.1, roughness:.6 });
-const player = new THREE.Mesh(playerGeo, playerMat);
+/* ---------- Player ---------- */
+const player = new THREE.Mesh(
+  new THREE.BoxGeometry(1,1,1),
+  new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness:.1, roughness:.6 })
+);
 player.position.set(0, 0.5, 0);
 scene.add(player);
 
+/* ---------- Entities ---------- */
 const obstacles = [];
 const pickups = [];
 const oGeo = new THREE.BoxGeometry(1,1,1);
@@ -87,8 +92,9 @@ const pGeo = new THREE.SphereGeometry(0.35, 24, 16);
 const pMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive:0x0a2, emissiveIntensity: .6 });
 
 function spawnLine(z) {
+  // never spawn closer than ~6 units from player at start area
   const lanes = [-2, 0, 2];
-  const count = 1 + Math.floor(Math.random()*3);
+  const count = 1 + Math.floor(Math.random()*2); // fewer blocks → fairer
   for (let i=0; i<count; i++) {
     const lane = lanes.splice(Math.floor(Math.random()*lanes.length),1)[0];
     const o = new THREE.Mesh(oGeo, oMat);
@@ -96,153 +102,184 @@ function spawnLine(z) {
     obstacles.push(o);
     scene.add(o);
   }
-  if (lanes.length > 0 && Math.random() < 0.8) {
+  if (lanes.length > 0 && Math.random() < 0.6) {
     const lane = lanes[Math.floor(Math.random()*lanes.length)];
     const p = new THREE.Mesh(pGeo, pMat);
-    p.position.set(lane, 0.5, z - 4);
+    p.position.set(lane, 0.5, z - 3);
     pickups.push(p);
     scene.add(p);
   }
 }
 
+/* ---------- Helpers ---------- */
 function aabb(a, b, r=0.9) {
   return Math.abs(a.x - b.x) < r && Math.abs(a.y - b.y) < r && Math.abs(a.z - b.z) < r;
 }
 
-let lane=0, vy=0, g=-0.012, baseSpeed=0.06, ramp=0.0001, maxSpeed=0.25, curSpeed=baseSpeed;
-let score=0, running=false, startTime=0;
-const scoreEl=document.getElementById('score');
-const timeEl=document.getElementById('time');
-const spdEl=document.getElementById('spd');
-const overUI=document.getElementById('gameover');
-const finalScoreEl=document.getElementById('finalScore');
-const leaderboardEl=document.getElementById('leaderboard');
-const leaderboardGO=document.getElementById('leaderboardGO');
+/* ---------- Game state ---------- */
+let lane = 0;           // -2, 0, +2
+let vy = 0;             // vertical velocity (u/s)
+const GRAVITY = -18;    // u/s^2  (soft)
+const JUMP_V  = 10.5;   // u/s    (clear a 1u block)
+let base = 2.0, ramp = 0.18, max = 5.0; // speed ramp (u/s, u/s^2, u/s)
+let speed = base;
 
-function loadLeaderboard(){
-  return JSON.parse(localStorage.getItem('runnerLB')||'[]');
-}
-function saveLeaderboard(lb){
-  localStorage.setItem('runnerLB',JSON.stringify(lb));
-}
-function updateLeaderboardUI(){
-  const lb=loadLeaderboard();
-  leaderboardEl.innerHTML=lb.map(s=>`<li>${s}</li>`).join('');
-  leaderboardGO.innerHTML=lb.map(s=>`<li>${s}</li>`).join('');
+let score = 0, running = false, startTime = 0, invulnUntil = 0;
+
+/* ---------- HUD / UI ---------- */
+const scoreEl = document.getElementById('score');
+const timeEl  = document.getElementById('time');
+const spdEl   = document.getElementById('spd');
+const overUI  = document.getElementById('gameover');
+const finalScoreEl = document.getElementById('finalScore');
+const leaderboardEl = document.getElementById('leaderboard');
+const leaderboardGO = document.getElementById('leaderboardGO');
+
+/* Leaderboard (local) */
+const LB_KEY = 'runnerLB_v2';
+const loadLB  = () => JSON.parse(localStorage.getItem(LB_KEY)||'[]');
+const saveLB  = lb => localStorage.setItem(LB_KEY, JSON.stringify(lb));
+const renderLB = () => {
+  const lb = loadLB();
+  const html = lb.map(s=>`<li>${s}</li>`).join('');
+  leaderboardEl.innerHTML = html; leaderboardGO.innerHTML = html;
+};
+
+/* ---------- Flow ---------- */
+function resetWorld() {
+  // clear
+  for (const arr of [obstacles, pickups]) while (arr.length) scene.remove(arr.pop());
+  // safe initial spacing: nothing near z ∈ [-8, +∞)
+  [ -12, -18, -24, -30, -36, -44, -52 ].forEach(z => spawnLine(z));
+  lane = 0; vy = 0; speed = base; score = 0;
+  startTime = performance.now();
+  invulnUntil = startTime + 2500; // 2.5s grace
+  scoreEl.textContent = '0'; timeEl.textContent = '0.0'; spdEl.textContent = speed.toFixed(2);
+  player.position.set(0,0.5,0);
 }
 
-function endGame(){
-  running=false;
-  overUI.style.display='flex';
-  finalScoreEl.textContent=score;
-  let lb=loadLeaderboard();
-  lb.push(score);
-  lb=lb.sort((a,b)=>b-a).slice(0,5);
-  saveLeaderboard(lb);
-  updateLeaderboardUI();
-}
-
-function startGame(){
-  lane=0; vy=0; curSpeed=baseSpeed; score=0;
-  startTime=performance.now();
-  obstacles.forEach(o=>scene.remove(o));
-  pickups.forEach(p=>scene.remove(p));
-  obstacles.length=0; pickups.length=0;
-  for (let z=4; z>=-50; z-=8) spawnLine(z);
-  running=true;
-}
-
-document.getElementById('startBtn').onclick=()=>{
+function startGame() {
   document.getElementById('menu').style.display='none';
-  startGame();
-};
-document.getElementById('restartBtn').onclick=()=>{
   overUI.style.display='none';
-  startGame();
-};
-document.getElementById('menuBtn').onclick=()=>{
-  overUI.style.display='none';
-  document.getElementById('menu').style.display='flex';
-};
+  resetWorld();
+  running = true;
+}
 
-updateLeaderboardUI();
+function endGame() {
+  running = false;
+  finalScoreEl.textContent = score;
+  let lb = loadLB(); lb.push(score); lb.sort((a,b)=>b-a); lb = lb.slice(0,5); saveLB(lb);
+  renderLB();
+  overUI.style.display='flex';
+}
+
+/* ---------- Input ---------- */
+const keys = new Set();
+addEventListener('keydown', e => keys.add(e.code));
+addEventListener('keyup',   e => keys.delete(e.code));
+
+document.getElementById('btnLeft').onclick = ()=> lane = Math.max(-2, lane-2);
+document.getElementById('btnRight').onclick= ()=> lane = Math.min(+2, lane+2);
+document.getElementById('btnJump').onclick = ()=> { if (Math.abs(player.position.y-0.5) < 0.001) vy = JUMP_V; };
+
+let touchStartX=0, touchStartY=0;
+addEventListener('touchstart', e => { touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; }, {passive:true});
+addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 30) lane = Math.min(+2, lane+2);
+    else if (dx < -30) lane = Math.max(-2, lane-2);
+  } else if (dy < -30 && Math.abs(player.position.y-0.5) < 0.001) {
+    vy = JUMP_V;
+  }
+}, {passive:true});
+
+/* ---------- Buttons ---------- */
+document.getElementById('startBtn').onclick   = startGame;
+document.getElementById('restartBtn').onclick = startGame;
+document.getElementById('menuBtn').onclick    = () => { overUI.style.display='none'; document.getElementById('menu').style.display='flex'; };
+
+renderLB();
 document.getElementById('menu').style.display='flex';
 
-// INPUT
-const keys=new Set();
-addEventListener('keydown',e=>keys.add(e.code));
-addEventListener('keyup',e=>keys.delete(e.code));
-document.getElementById('btnLeft').onclick=()=>lane=Math.max(lane-2,-2);
-document.getElementById('btnRight').onclick=()=>lane=Math.min(lane+2,2);
-document.getElementById('btnJump').onclick=()=>{if(Math.abs(player.position.y-0.5)<0.01)vy=0.34;};
-let touchStartX=0,touchStartY=0;
-addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;});
-addEventListener('touchend',e=>{
-  const dx=e.changedTouches[0].clientX-touchStartX;
-  const dy=e.changedTouches[0].clientY-touchStartY;
-  if(Math.abs(dx)>Math.abs(dy)){
-    if(dx>30) lane=Math.min(lane+2,2);
-    else if(dx<-30) lane=Math.max(lane-2,-2);
-  }else{
-    if(dy<-30 && Math.abs(player.position.y-0.5)<0.01) vy=0.34;
+/* ---------- Game update/render (seconds-based) ---------- */
+function update(dt) {
+  // inputs
+  if ((keys.has('ArrowLeft')||keys.has('KeyA'))  && lane > -2) { lane -= 2; keys.delete('ArrowLeft'); keys.delete('KeyA'); }
+  if ((keys.has('ArrowRight')||keys.has('KeyD')) && lane <  2) { lane += 2; keys.delete('ArrowRight'); keys.delete('KeyD'); }
+  if ((keys.has('Space')||keys.has('ArrowUp')||keys.has('KeyW')) && Math.abs(player.position.y-0.5) < 0.001) {
+    vy = JUMP_V; keys.delete('Space'); keys.delete('ArrowUp'); keys.delete('KeyW');
   }
-});
 
-function update(dt){
-  if ((keys.has('ArrowLeft')||keys.has('KeyA')) && lane>-2) lane=-2, keys.clear();
-  if ((keys.has('ArrowRight')||keys.has('KeyD')) && lane<2) lane=2, keys.clear();
-  if ((keys.has('Space')||keys.has('ArrowUp')||keys.has('KeyW')) && Math.abs(player.position.y-0.5)<0.01) vy=0.34;
+  // smooth lane snap
+  player.position.x += (lane - player.position.x) * Math.min(1, 8 * dt);
 
-  player.position.x += (lane - player.position.x) * 0.2;
-  vy += g * dt;
+  // vertical motion
+  vy += GRAVITY * dt;
   player.position.y += vy * dt;
   if (player.position.y < 0.5) { player.position.y = 0.5; vy = 0; }
 
-  obstacles.forEach(o=>o.position.z += curSpeed * dt);
-  pickups.forEach(p=>p.position.z += curSpeed * dt);
+  // world motion
+  obstacles.forEach(o => o.position.z += speed * dt);
+  pickups.forEach(p   => p.position.z += speed * dt);
 
-  for (let i=obstacles.length-1; i>=0; i--){
-    if(obstacles[i].position.z>10){
-      scene.remove(obstacles[i]); obstacles.splice(i,1); score+=5;
+  // cleanup
+  for (let i=obstacles.length-1; i>=0; i--) if (obstacles[i].position.z > 10) { scene.remove(obstacles[i]); obstacles.splice(i,1); score += 5; }
+  for (let i=pickups.length-1; i>=0; i--)   if (pickups[i].position.z   > 10) { scene.remove(pickups[i]);   pickups.splice(i,1); }
+
+  // occasional spawns (far away)
+  if (Math.random() < 0.03) spawnLine(-36 - Math.random()*12);
+
+  // collisions — ONLY when grounded, and NOT during grace
+  const now = performance.now();
+  const grounded = player.position.y <= 0.7;
+  if (now > invulnUntil && grounded) {
+    for (const o of obstacles) {
+      const hitXZ = Math.abs(player.position.x - o.position.x) < 0.9 && Math.abs(player.position.z - o.position.z) < 0.9;
+      if (hitXZ) return endGame();
     }
   }
-  for (let i=pickups.length-1; i>=0; i--){
-    if(pickups[i].position.z>10){
-      scene.remove(pickups[i]); pickups.splice(i,1);
+  for (let i=pickups.length-1; i>=0; i--) {
+    const p = pickups[i];
+    if (aabb(player.position, p.position, 0.8)) {
+      score += 20; scene.remove(p); pickups.splice(i,1);
     }
   }
 
-  if(Math.random()<0.04) spawnLine(-50);
+  // speed ramp
+  speed = Math.min(max, speed + ramp * dt);
 
-  for (const o of obstacles) if(aabb(player.position,o.position)) return endGame();
-  for (let i=pickups.length-1; i>=0; i--){
-    const p=pickups[i];
-    if(aabb(player.position,p.position,0.8)){
-      score+=20; scene.remove(p); pickups.splice(i,1);
-    }
-  }
-
-  curSpeed = Math.min(curSpeed + ramp*dt, maxSpeed);
-
-  scoreEl.textContent=score;
-  timeEl.textContent=((performance.now()-startTime)/1000).toFixed(1);
-  spdEl.textContent=curSpeed.toFixed(3);
+  // HUD
+  scoreEl.textContent = score;
+  timeEl.textContent  = ((now - startTime)/1000).toFixed(1);
+  spdEl.textContent   = speed.toFixed(2);
 }
 
-function tick(){
-  if(running){
-    update(16.6);
-    camera.position.lerp(new THREE.Vector3(player.position.x*0.5, 3.5, 7), 0.1);
-    camera.lookAt(player.position.x, 0.8, player.position.z - 2);
-  }
+function render(dt) {
+  // follow cam
+  const k = 1 - Math.exp(-6 * dt);
+  const target = new THREE.Vector3(player.position.x*0.5, 3.3, 7);
+  camera.position.lerp(target, k);
+  camera.lookAt(player.position.x, 0.8, player.position.z - 2);
+
   renderer.render(scene, camera);
-  requestAnimationFrame(tick);
 }
-tick();
 
-addEventListener('resize',()=>{
-  renderer.setSize(innerWidth,innerHeight);
-  camera.aspect=innerWidth/innerHeight;
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); // clamp to 50 ms
+  last = now;
+  if (running) update(dt);
+  render(dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- Resize ---------- */
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
 });
 </script>
