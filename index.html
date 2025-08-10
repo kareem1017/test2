@@ -13,7 +13,7 @@ html, body { height:100%; margin:0; background:#0b0f14; color:#e5e7eb; font:14px
 .card { background:#111827; padding:24px 28px; border-radius:16px; text-align:center; }
 button { padding:10px 14px; border-radius:12px; border:0; background:#2563eb; color:white; font-weight:600; cursor:pointer; margin:4px }
 #mobileControls { position:fixed; bottom:20px; width:100%; display:flex; justify-content:space-between; pointer-events:none; }
-.mcBtn { background:rgba(0,0,0,0.4); padding:30px; border-radius:50%; pointer-events:auto; }
+.mcBtn { background:rgba(0,0,0,0.4); padding:30px; border-radius:50%; pointer-events:auto; font-size:28px; color:white; user-select:none; }
 </style>
 </head>
 <body>
@@ -51,7 +51,6 @@ button { padding:10px 14px; border-radius:12px; border:0; background:#2563eb; co
 
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
 const canvas = document.getElementById('webgl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: innerWidth>768 });
@@ -62,13 +61,6 @@ renderer.setClearColor(0x0b0f14, 1);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
 camera.position.set(0, 4, 8);
-camera.lookAt(0, 0.5, 0);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-controls.maxPolarAngle = Math.PI * 0.49;
-if(innerWidth<768){controls.enabled=false;}
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 const dir = new THREE.DirectionalLight(0xffffff, 1.0);
@@ -117,7 +109,7 @@ function aabb(a, b, r=0.9) {
   return Math.abs(a.x - b.x) < r && Math.abs(a.y - b.y) < r && Math.abs(a.z - b.z) < r;
 }
 
-let lane=0, vy=0, g=-0.015, baseSpeed=0.08, ramp=0.0002, maxSpeed=0.25, curSpeed=baseSpeed;
+let lane=0, vy=0, g=-0.012, baseSpeed=0.06, ramp=0.0001, maxSpeed=0.25, curSpeed=baseSpeed;
 let score=0, running=false, startTime=0;
 const scoreEl=document.getElementById('score');
 const timeEl=document.getElementById('time');
@@ -182,7 +174,7 @@ addEventListener('keydown',e=>keys.add(e.code));
 addEventListener('keyup',e=>keys.delete(e.code));
 document.getElementById('btnLeft').onclick=()=>lane=Math.max(lane-2,-2);
 document.getElementById('btnRight').onclick=()=>lane=Math.min(lane+2,2);
-document.getElementById('btnJump').onclick=()=>{if(Math.abs(player.position.y-0.5)<0.01)vy=0.28;};
+document.getElementById('btnJump').onclick=()=>{if(Math.abs(player.position.y-0.5)<0.01)vy=0.34;};
 let touchStartX=0,touchStartY=0;
 addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;});
 addEventListener('touchend',e=>{
@@ -192,14 +184,14 @@ addEventListener('touchend',e=>{
     if(dx>30) lane=Math.min(lane+2,2);
     else if(dx<-30) lane=Math.max(lane-2,-2);
   }else{
-    if(dy<-30 && Math.abs(player.position.y-0.5)<0.01) vy=0.28;
+    if(dy<-30 && Math.abs(player.position.y-0.5)<0.01) vy=0.34;
   }
 });
 
 function update(dt){
-  if ((keys.has('ArrowLeft')||keys.has('KeyA')) && lane>-2) lane-=2, keys.delete('ArrowLeft'),keys.delete('KeyA');
-  if ((keys.has('ArrowRight')||keys.has('KeyD')) && lane<2) lane+=2, keys.delete('ArrowRight'),keys.delete('KeyD');
-  if ((keys.has('Space')||keys.has('ArrowUp')||keys.has('KeyW')) && Math.abs(player.position.y-0.5)<0.01) vy=0.28;
+  if ((keys.has('ArrowLeft')||keys.has('KeyA')) && lane>-2) lane=-2, keys.clear();
+  if ((keys.has('ArrowRight')||keys.has('KeyD')) && lane<2) lane=2, keys.clear();
+  if ((keys.has('Space')||keys.has('ArrowUp')||keys.has('KeyW')) && Math.abs(player.position.y-0.5)<0.01) vy=0.34;
 
   player.position.x += (lane - player.position.x) * 0.2;
   vy += g * dt;
@@ -243,7 +235,6 @@ function tick(){
     camera.position.lerp(new THREE.Vector3(player.position.x*0.5, 3.5, 7), 0.1);
     camera.lookAt(player.position.x, 0.8, player.position.z - 2);
   }
-  controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
