@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-<title>Runner 3D — Mobile Dock + Crescents</title>
+<title>Runner 3D — Night Run + Crescents</title>
 <style>
   :root { --bg:#0b0f14; --fg:#e5e7eb; --panel:#111827; --glass:rgba(0,0,0,.55); --accent:#2563eb; --muted:#9ca3af; }
   html, body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:14px system-ui,Segoe UI,Roboto; overflow:hidden }
-  #hud { position:fixed; top:12px; left:12px; z-index:10; background:rgba(0,0,0,.35); padding:8px 12px; border-radius:10px; backdrop-filter: blur(6px); }
+  #hud { position:fixed; top:12px; left:12px; z-index:20; background:rgba(0,0,0,.35); padding:8px 12px; border-radius:10px; backdrop-filter: blur(6px); }
   #hud b { font-weight:700; }
-  #btnTop { position:fixed; top:12px; right:12px; display:flex; gap:8px; z-index:12 }
+  #btnTop { position:fixed; top:12px; right:12px; display:flex; gap:8px; z-index:20 }
   .topBtn { padding:8px 10px; border-radius:10px; border:0; background:#1f2937; color:#fff; font-weight:700 }
-  #hint { position:fixed; bottom:12px; left:12px; opacity:.85 }
-  .overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:var(--glass); z-index:20 }
+  #hint { position:fixed; bottom:12px; left:12px; opacity:.85; z-index:10 }
+  .overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:var(--glass); z-index:30 }
   .card { background:var(--panel); padding:22px 26px; border-radius:16px; min-width:min(94vw,640px) }
   .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px }
   button { padding:10px 14px; border-radius:12px; border:0; background:var(--accent); color:white; font-weight:700; cursor:pointer }
@@ -21,14 +21,15 @@
   input[type="range"], input[type="text"] { width:260px }
   .note { color:var(--muted); font-size:12px }
 
+  /* Mobile controls */
   #mobileControls { position:fixed; bottom:20px; width:100%; display:flex; justify-content:space-between; pointer-events:none; z-index:12 }
   .mcBtn { background:rgba(0,0,0,0.45); padding:30px; border-radius:50%; pointer-events:auto; font-size:28px; color:white; user-select:none; }
 
-  /* Leaderboard dock */
+  /* Leader dock (collapsible on phones) */
   #leaderDock {
     position:fixed; top:0; right:0; width:260px; height:100%;
     background:rgba(0,0,0,.35); backdrop-filter: blur(6px);
-    padding:12px; box-sizing:border-box; z-index:11;
+    padding:12px; box-sizing:border-box; z-index:15;
     border-left:1px solid rgba(255,255,255,.06); transition: transform .25s ease;
   }
   #leaderDock h3 { margin:6px 0 6px; font-size:16px }
@@ -36,11 +37,9 @@
   #leaderDock .name { color:#93c5fd }
   #powerups { margin-top:10px; font-size:12px; color:var(--muted) }
   #playerNameDisplay { font-size:12px; color:var(--muted); margin-bottom:6px }
-
-  /* Phone: collapsed dock with a tab */
   #dockTab {
     position:fixed; right:0; top:50%; transform:translateY(-50%);
-    z-index:12; background:#1f2937; color:#fff; padding:10px 8px;
+    z-index:16; background:#1f2937; color:#fff; padding:10px 8px;
     border-radius:10px 0 0 10px; font-weight:700; writing-mode:vertical-rl;
     text-orientation:mixed; letter-spacing:1px;
   }
@@ -49,9 +48,10 @@
     #leaderDock.open { transform: translateX(0); }
     #dockTab { display:block; }
   }
-  @media (min-width: 769px) {
-    #dockTab { display:none; }
-  }
+  @media (min-width: 769px) { #dockTab { display:none; } }
+
+  /* Power-up floating labels kept small; no HUD overlap */
+  .labelHolder { pointer-events:none; }
 </style>
 </head>
 <body>
@@ -79,7 +79,7 @@
   </div>
 </aside>
 
-<!-- Name prompt -->
+<!-- Name -->
 <div id="nameAsk" class="overlay">
   <div class="card" style="min-width:min(94vw,420px)">
     <h2 style="margin:0 0 8px">Enter Player Name</h2>
@@ -146,7 +146,7 @@
 
       <label><span>Only collide when grounded</span><input id="colGround" type="checkbox"></label>
     </div>
-    <p class="note">Most settings apply immediately. Grace re-applies on restart. Name saved to localStorage.</p>
+    <p class="note">Most settings apply immediately. Grace re-applies on restart. Name saved to storage.</p>
     <div class="row">
       <button id="settingsSave">Save</button>
       <button id="settingsClose" class="ghost">Close</button>
@@ -177,38 +177,31 @@
 <canvas id="webgl"></canvas>
 
 <script type="module">
-/* ========= 1) THREE fallback loader (local -> jsDelivr -> unpkg) ========= */
-let THREE;
-try {
-  THREE = await import('./lib/three.module.min.js'); // optional local copy
-} catch (e1) {
-  try {
-    THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
-  } catch (e2) {
-    THREE = await import('https://unpkg.com/three@0.160.0/build/three.module.js');
-  }
-}
+/* CDN three.js (kept) */
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
-/* ========= 2) Safe storage wrapper (never throws) ========= */
+/* -------- Safe storage wrapper (prevents GitHub/iOS Private crashes) -------- */
 const storage = (() => {
   try {
-    const t='__t__'; window.localStorage.setItem(t,'1'); window.localStorage.removeItem(t);
-    return window.localStorage;
-  } catch {
-    const mem = {};
+    const k = '__probe__'; localStorage.setItem(k,'1'); localStorage.removeItem(k);
+    return localStorage;
+  } catch(e) {
+    let mem = {};
     return {
       getItem:k => (k in mem ? mem[k] : null),
-      setItem:(k,v)=>{ mem[k] = String(v); },
-      removeItem:k=>{ delete mem[k]; }
+      setItem:(k,v)=>{ mem[k]=String(v) },
+      removeItem:k=>{ delete mem[k] },
+      clear:()=>{ mem={} }
     };
   }
 })();
 
-/* ---------- Storage & settings ---------- */
+/* ---------- Keys ---------- */
 const LB_KEY = 'runner_lb_v9';
 const NAME_KEY = 'runner_name_v1';
 const ST_KEY = 'runner_settings_v9';
 
+/* ---------- Defaults (KEEPING YOUR TUNING) ---------- */
 const DEFAULTS = {
   base: 18.0, ramp: 1.70, max: 40.0,
   gravity: -21, jump: 10.8,
@@ -218,9 +211,11 @@ const DEFAULTS = {
   collideGroundedOnly: false
 };
 
+/* ---------- Helpers ---------- */
 const $ = id => document.getElementById(id);
 const outBind = (inp, out, d=1) => inp.oninput = () => out.textContent = (+inp.value).toFixed(d);
 
+/* ---------- Settings ---------- */
 let settings = { ...DEFAULTS, ...(JSON.parse(storage.getItem(ST_KEY)||'{}')) };
 function syncSettingsToUI() {
   base.value=settings.base; baseOut.textContent=settings.base.toFixed(1);
@@ -247,7 +242,7 @@ outBind(base,baseOut,1); outBind(ramp,rampOut,2); outBind(max,maxOut,1);
 outBind(grav,gravOut,0); outBind(jump,jumpOut,1); outBind(dens,densOut,2);
 outBind(grace,graceOut,1); outBind(cam,camOut,1);
 
-/* ---------- Leaderboard ---------- */
+/* ---------- Leaderboard (local for now) ---------- */
 const leaderList = $('leaderList');
 function getLB(){ return JSON.parse(storage.getItem(LB_KEY)||'[]'); }
 function pushLB(name,score){ const lb=getLB(); lb.push({name,score,at:Date.now()}); lb.sort((a,b)=>b.score-a.score); storage.setItem(LB_KEY, JSON.stringify(lb.slice(0,5))); renderLB(); }
@@ -280,33 +275,26 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x0b0f14, 1);
 
-const scene = new THREE.Scene(); // no fog
+const scene = new THREE.Scene(); // no fog (per your note)
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 400);
 camera.position.set(0, 3.3, 7);
 
-/* Lighting */
+/* Night/space lights */
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-dir.position.set(6, 10, 8); scene.add(dir);
-const rim = new THREE.PointLight(0xff6666, 0.9, 120, 2.0);
-rim.position.set(0, 3, 6); scene.add(rim);
+const dir = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(6, 10, 8); scene.add(dir);
+const rim = new THREE.PointLight(0xff6666, 0.9, 120, 2.0); rim.position.set(0, 3, 6); scene.add(rim);
 
 /* Floor */
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(280, 70),
-  new THREE.MeshStandardMaterial({ color: 0x0f1420, roughness: 0.95, metalness:0.05 })
-);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(280, 70), new THREE.MeshStandardMaterial({ color: 0x0f1420, roughness: 0.95, metalness:0.05 }));
 floor.rotation.x = -Math.PI/2; scene.add(floor);
 
-/* Player (ball) */
+/* Player: sphere */
 const R = 0.5;
-const player = new THREE.Mesh(
-  new THREE.SphereGeometry(R, 28, 18),
-  new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness:.45, roughness:.35, emissive:0x0a1e44, emissiveIntensity:.35 })
-);
+const player = new THREE.Mesh(new THREE.SphereGeometry(R, 28, 18),
+  new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness:.45, roughness:.35, emissive:0x0a1e44, emissiveIntensity:.35 }));
 player.position.set(0, R, 0); scene.add(player);
 
-/* Entities & materials */
+/* Entities */
 const obstacles=[], pickups=[], powerups=[];
 const capGeo = new THREE.CapsuleGeometry(0.5, 1.0, 10, 16);
 const capMat = new THREE.MeshStandardMaterial({ color: 0xff2e2e, emissive:0x390707, emissiveIntensity:1.0, metalness:.35, roughness:.25 });
@@ -320,15 +308,14 @@ function makeCapsule(){
   return root;
 }
 
-/* Crescent moon sprite (white glow) */
+/* Moons (white crescent) */
 function makeCrescentSprite(size=0.9){
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const g = c.getContext('2d');
   const grad = g.createRadialGradient(128,128,10,128,128,120);
   grad.addColorStop(0,'#ffffffee'); grad.addColorStop(0.4,'#ffffff66'); grad.addColorStop(1,'#0000');
   g.fillStyle = grad; g.beginPath(); g.arc(128,128,120,0,Math.PI*2); g.fill();
-  g.globalCompositeOperation='source-over';
-  g.fillStyle='#fff';
+  g.globalCompositeOperation='source-over'; g.fillStyle='#fff';
   g.beginPath(); g.arc(128,128,70,0,Math.PI*2); g.fill();
   g.globalCompositeOperation='destination-out';
   g.beginPath(); g.arc(155,118,70,0,Math.PI*2); g.fill();
@@ -339,7 +326,7 @@ function makeCrescentSprite(size=0.9){
   return spr;
 }
 
-/* Power-up meshes (with simple glow look) */
+/* Power-ups (rarer, clearer) */
 const shieldGeo = new THREE.TorusGeometry(0.52, 0.10, 18, 48);
 const shieldMat = new THREE.MeshStandardMaterial({ color: 0x93c5fd, emissive:0x203a7a, emissiveIntensity:1.0, metalness:.55, roughness:.25 });
 const dashGeo   = new THREE.ConeGeometry(0.36, 0.9, 24);
@@ -347,18 +334,11 @@ const dashMat   = new THREE.MeshStandardMaterial({ color: 0x9b5cf0, emissive:0x3
 const magnetGeo = new THREE.TorusGeometry(0.55, 0.12, 20, 60, Math.PI);
 const magnetMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive:0x4b2d00, emissiveIntensity:1.0, metalness:.5, roughness:.3 });
 
-/* Halo/label for power-ups */
-function halo(text, color){
-  const obj = new THREE.Group();
-  const label = makeTextSprite(text, color); label.position.y = 0.9; obj.add(label);
-  const glow = makeGlowSprite(color); glow.scale.set(2,2,1); obj.add(glow);
-  obj.userData.halo = true; return obj;
-}
 function makeGlowSprite(color='#ffd166'){
   const c = document.createElement('canvas'); c.width=c.height=256;
   const g = c.getContext('2d');
   const grad = g.createRadialGradient(128,128,20,128,128,120);
-  grad.addColorStop(0,color); grad.addColorStop(0.6,`${color}55`); grad.addColorStop(1,'#0000');
+  grad.addColorStop(0,color); grad.addColorStop(0.6,color+'55'); grad.addColorStop(1,'#0000');
   g.fillStyle=grad; g.beginPath(); g.arc(128,128,120,0,Math.PI*2); g.fill();
   const t = new THREE.CanvasTexture(c); t.transparent=true;
   return new THREE.Sprite(new THREE.SpriteMaterial({ map:t, transparent:true, depthWrite:false }));
@@ -370,78 +350,77 @@ function makeTextSprite(txt='★', color='#fff'){
   g.fillStyle=color; g.shadowColor=color; g.shadowBlur=18; g.fillText(txt,128,64);
   const t = new THREE.CanvasTexture(c); t.transparent=true;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:t, transparent:true, depthWrite:false }));
-  s.scale.set(1.2,0.6,1); return s;
+  s.scale.set(1.0,0.5,1); return s;
+}
+function halo(text, color){
+  const obj = new THREE.Group(); obj.className = 'labelHolder';
+  const label = makeTextSprite(text, color); label.position.y = 0.9; obj.add(label);
+  const glow = makeGlowSprite(color); glow.scale.set(1.6,1.6,1); obj.add(glow);
+  return obj;
 }
 
-/* Spawning */
+/* -------- Spawning (declumped + density-driven + infinite ramp) -------- */
 let lastSpawnZ = -80;
+const MIN_GAP = 10;      // hard min gap between lines
+const LANE_X = [-2, 0, 2];
+
 function spawnLine(z) {
-  if (z - lastSpawnZ > -10) z = lastSpawnZ - 10;
+  if (z - lastSpawnZ > -MIN_GAP) z = lastSpawnZ - MIN_GAP;
   lastSpawnZ = z;
 
-  const lanes = [-2, 0, 2];
+  const lanes = LANE_X.slice();
   const t = Math.max(0, (performance.now() - startTime)/1000);
-  const diff = Math.min(1.7, 0.6 + t/35);
 
-  const baseCount = (Math.random() < 0.5 ? 1 : 2);
-  const extra = Math.random() < Math.min(0.45*diff, 0.8) ? 1 : 0;
-  const count = Math.min(lanes.length, baseCount + extra);
+  // Difficulty scales forever
+  const diff = 0.6 + t/35;   // grows unbounded (visually capped by min/max clamps below)
 
-  for (let i=0; i<count; i++) {
+  // Choose 1–3 obstacles, biased by diff but never all 3 all the time
+  const maxByDiff = Math.min(3, 1 + Math.floor(Math.min(2.4, diff)));
+  const count = Math.min(lanes.length, 1 + (Math.random() < 0.55 ? 1 : 0) + (Math.random() < Math.min(0.2*diff, 0.5) ? 1 : 0));
+  const finalCount = Math.min(maxByDiff, count);
+
+  for (let i=0; i<finalCount; i++) {
     const lane = lanes.splice(Math.floor(Math.random()*lanes.length),1)[0];
     const o = makeCapsule();
     o.position.set(lane, 1.0, z);
     o.userData.phase = Math.random()*Math.PI*2;
-    if (Math.random() < 0.85) { o.userData.vxAmp = (0.8 + Math.random()*1.4) * diff; o.userData.vxW = 0.9 + Math.random()*1.6; }
-    if (Math.random() < 0.55) { o.userData.vyAmp = 0.12 + Math.random()*0.2; o.userData.vyW = 1.0 + Math.random()*1.2; }
-    if (Math.random() < 0.35) { o.userData.swapTo = (Math.random()<0.5 ? -2 : 2); o.userData.swapSpeed = (0.35 + Math.random()*0.55) * diff; }
+
+    // More motion as diff grows
+    if (Math.random() < Math.min(0.85, 0.55 + diff*0.15)) { o.userData.vxAmp = (0.7 + Math.random()*1.3) * Math.min(1.8, diff); o.userData.vxW = 0.8 + Math.random()*1.5; }
+    if (Math.random() < Math.min(0.60, 0.30 + diff*0.12)) { o.userData.vyAmp = 0.10 + Math.random()*0.22; o.userData.vyW = 1.0 + Math.random()*1.2; }
+    if (Math.random() < Math.min(0.45, 0.25 + diff*0.10)) { o.userData.swapTo = (Math.random()<0.5 ? -2 : 2); o.userData.swapSpeed = (0.35 + Math.random()*0.55) * Math.min(1.7, diff); }
+
     obstacles.push(o); scene.add(o);
   }
 
-  // pickups/powerups (crescents common; powerups rare)
+  // pickups/powerups
   if (lanes.length > 0) {
     const lane = lanes[Math.floor(Math.random()*lanes.length)];
     const roll = Math.random();
-    if (roll < 0.65) {
+    if (roll < 0.78) {  // moons common
       const spr = makeCrescentSprite(1.0);
       spr.position.set(lane, 0.75, z - 3); pickups.push(spr); scene.add(spr);
-    } else if (roll < 0.69) {
+    } else if (roll < 0.80) {  // ~2% shield
       const s = new THREE.Mesh(shieldGeo, shieldMat); s.rotation.x=Math.PI/2; s.position.set(lane,0.7,z-3); s.userData.type='shield';
-      const h = halo('🛡','#7cc0ff'); s.add(h);
-      powerups.push(s); scene.add(s);
-    } else if (roll < 0.73) {
+      s.add(halo('🛡','#7cc0ff')); powerups.push(s); scene.add(s);
+    } else if (roll < 0.82) {  // ~2% dash (works while airborne)
       const d = new THREE.Mesh(dashGeo, dashMat); d.position.set(lane,0.65,z-3); d.userData.type='dash';
-      const h = halo('⚡','#c9a7ff'); d.add(h);
-      powerups.push(d); scene.add(d);
-    } else if (roll < 0.77) {
+      d.add(halo('⚡','#c9a7ff')); powerups.push(d); scene.add(d);
+    } else if (roll < 0.84) {  // ~2% magnet
       const m = new THREE.Mesh(magnetGeo, magnetMat); m.rotation.z=Math.PI; m.position.set(lane,0.7,z-3); m.userData.type='magnet';
-      const h = halo('🧲','#ffd166'); m.add(h);
-      powerups.push(m); scene.add(m);
+      m.add(halo('🧲','#ffd166')); powerups.push(m); scene.add(m);
     }
   }
 }
 
-/* Helpers */
+/* ---------- UI / input ---------- */
 const scoreEl=$('score'), timeEl=$('time'), spdEl=$('spd'), shieldHud=$('shieldHud');
 const dashT=$('dashT'), magnetT=$('magnetT');
 
-function hitBallCapsule(ball, capGroup) {
-  const cap = capGroup.userData.body || capGroup;
-  const capR = 0.5, capHalf = 1.0;
-  const dx = ball.x - capGroup.position.x;
-  const dz = ball.z - capGroup.position.z;
-  const touchXZ = Math.hypot(dx, dz) < (capR + R*0.98);
-  const dy = Math.abs(ball.y - (capGroup.position.y));
-  const touchY = dy < capHalf + R*0.65;
-  return touchXZ && touchY;
-}
-
-/* State */
 let lane=0, vy=0, speed=settings.base, score=0, running=false, paused=false;
 let startTime=performance.now(), invulnUntil=0, spawnAcc=0;
 let shield=0, dashUntil=0, magnetUntil=0;
 
-/* Input */
 const keys = new Set();
 addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','Escape'].includes(e.code)) e.preventDefault();
@@ -449,9 +428,11 @@ addEventListener('keydown', e => {
   if (e.code === 'Escape' && running) setPaused(!paused);
 }, {passive:false});
 addEventListener('keyup', e => keys.delete(e.code), {passive:true});
+
 $('btnLeft').onclick  = ()=> lane = Math.max(-2, lane-2);
 $('btnRight').onclick = ()=> lane = Math.min(+2, lane+2);
 $('btnJump').onclick  = ()=> { if (Math.abs(player.position.y-R) < 0.001) vy = settings.jump; };
+
 let touchStartX=0, touchStartY=0;
 addEventListener('touchstart', e => { touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; }, {passive:true});
 addEventListener('touchend', e => {
@@ -463,7 +444,7 @@ addEventListener('touchend', e => {
   } else if (dy < -30 && Math.abs(player.position.y-R) < 0.001) vy = settings.jump;
 }, {passive:true});
 
-/* Phone dock toggle */
+/* Dock toggle (avoid overlap on phones) */
 const dock = $('leaderDock'); const tab = $('dockTab');
 tab.onclick = () => { dock.classList.toggle('open'); };
 
@@ -482,7 +463,7 @@ $('goSettingsBtn').onclick = () => { syncSettingsToUI(); $('settings').style.dis
 $('settingsSave').onclick = () => { saveSettingsFromUI(); $('settings').style.display='none'; };
 $('settingsClose').onclick = () => { $('settings').style.display='none'; };
 
-/* Flow */
+/* -------- Flow -------- */
 function resetWorld(){
   for (const arr of [obstacles,pickups,powerups]) while (arr.length) scene.remove(arr.pop());
   lastSpawnZ = -90;
@@ -495,38 +476,43 @@ function resetWorld(){
   player.position.set(0,R,0);
   scoreEl.textContent='0'; timeEl.textContent='0.0'; spdEl.textContent=settings.base.toFixed(2);
 }
-function startGame(){
-  $('menu').style.display='none'; $('gameover').style.display='none'; $('pause').style.display='none';
-  resetWorld(); running=true; paused=false;
-}
-function endGame(){
-  running=false; paused=false;
-  const name = storage.getItem(NAME_KEY)||'Anon';
-  $('finalScore').textContent = score;
-  pushLB(name, score);
-  renderLB();
-  $('gameover').style.display='flex';
-}
+function startGame(){ $('menu').style.display='none'; $('gameover').style.display='none'; $('pause').style.display='none'; resetWorld(); running=true; paused=false; }
+function endGame(){ running=false; paused=false; const name = storage.getItem(NAME_KEY)||'Anon'; $('finalScore').textContent = score; pushLB(name, score); renderLB(); $('gameover').style.display='flex'; }
 function setPaused(p){ paused=p; $('pause').style.display = p ? 'flex' : 'none'; }
 
-/* Update / Render */
+/* -------- Update / Render -------- */
+function hitBallCapsule(ball, capGroup) {
+  const cap = capGroup.userData.body || capGroup;
+  const capR = 0.5, capHalf = 1.0;
+  const dx = ball.x - capGroup.position.x;
+  const dz = ball.z - capGroup.position.z;
+  const touchXZ = Math.hypot(dx, dz) < (capR + R*0.98);
+  const dy = Math.abs(ball.y - (capGroup.position.y));
+  const touchY = dy < capHalf + R*0.65;
+  return touchXZ && touchY;
+}
+
 function update(dt){
   if (!running || paused) return;
   const now = performance.now();
 
+  // Inputs
   if ((keys.has('ArrowLeft')||keys.has('KeyA'))  && lane > -2) { lane -= 2; keys.delete('ArrowLeft'); keys.delete('KeyA'); }
   if ((keys.has('ArrowRight')||keys.has('KeyD')) && lane <  2) { lane += 2; keys.delete('ArrowRight'); keys.delete('KeyD'); }
   if ((keys.has('Space')||keys.has('ArrowUp')||keys.has('KeyW')) && Math.abs(player.position.y-R) < 0.001) {
     vy = settings.jump; keys.delete('Space'); keys.delete('ArrowUp'); keys.delete('KeyW');
   }
 
+  // Smooth snap
   const kx = 1 - Math.exp(-12 * dt);
   player.position.x += (lane - player.position.x) * kx;
 
+  // Vertical
   vy += settings.gravity * dt;
   player.position.y += vy * dt;
   if (player.position.y < R) { player.position.y = R; vy = 0; }
 
+  // Obstacle motion
   for (const o of obstacles){
     const p = o.userData; const baseY=1.0;
     if (p.vxAmp) o.position.x += Math.sin(now/1000*p.vxW + p.phase) * p.vxAmp * dt;
@@ -538,6 +524,7 @@ function update(dt){
     o.position.x = Math.max(-2.6, Math.min(2.6, o.position.x));
   }
 
+  // Power states (dash works mid-air; also grants brief immunity)
   const dashActive = now < dashUntil;
   const magnetActive = now < magnetUntil;
   dashT.textContent = Math.max(0, (dashUntil-now)/1000).toFixed(1);
@@ -548,6 +535,7 @@ function update(dt){
   pickups.forEach(p   => { p.position.z += speed * worldFactor * dt; if (p.userData.isCrescent) p.material.rotation += 0.6*dt; });
   powerups.forEach(pu => pu.position.z += speed * worldFactor * dt);
 
+  // Magnet attraction
   if (magnetActive){
     for (const p of pickups){
       const dx = player.position.x - p.position.x;
@@ -563,19 +551,23 @@ function update(dt){
     }
   }
 
+  // Cleanup
   for (let i=obstacles.length-1;i>=0;i--) if (obstacles[i].position.z > 12){ scene.remove(obstacles[i]); obstacles.splice(i,1); score+=5; }
   for (let i=pickups.length-1;i>=0;i--) if (pickups[i].position.z > 12){ scene.remove(pickups[i]); pickups.splice(i,1); }
   for (let i=powerups.length-1;i>=0;i--) if (powerups[i].position.z > 12){ scene.remove(powerups[i]); powerups.splice(i,1); }
 
-  spawnAcc += dt * (1 + Math.min(1.6, ((now - startTime)/1000) / 35));
-  const expected = settings.density * spawnAcc;
-  if (expected >= 1) {
-    for (let i=0; i<Math.floor(expected); i++) spawnLine(-70 - Math.random()*30);
-    spawnAcc = expected - Math.floor(expected);
+  // Pacing: density-driven, declumped
+  spawnAcc += dt * (1 + Math.min(2.0, ((now - startTime)/1000) / 30)); // scales with time
+  let expected = settings.density * spawnAcc;
+  while (expected >= 1) {
+    spawnLine(-70 - Math.random()*30); // each line enforces MIN_GAP
+    expected -= 1;
   }
+  spawnAcc = expected;
 
+  // Collisions — first hit kills unless shield (dash grants brief immunity)
   const grounded = player.position.y <= (R + 0.2);
-  const canDie = now > invulnUntil && (!settings.collideGroundedOnly || grounded) && !(now < dashUntil);
+  const canDie = now > invulnUntil && (!settings.collideGroundedOnly || grounded) && !dashActive;
   if (canDie){
     for (let i=obstacles.length-1;i>=0;i--){
       const o=obstacles[i];
@@ -586,6 +578,7 @@ function update(dt){
     }
   }
 
+  // Pickups
   for (let i=pickups.length-1;i>=0;i--){
     const p=pickups[i];
     const dx = player.position.x - p.position.x;
@@ -600,17 +593,19 @@ function update(dt){
     const dz = player.position.z - pu.position.z;
     if (Math.hypot(dx,dy,dz) < (R + 0.7)){
       if (pu.userData.type==='shield'){ shield++; shieldHud.textContent=String(shield); }
-      else if (pu.userData.type==='dash'){ dashUntil = now + 2500; }
+      else if (pu.userData.type==='dash'){ dashUntil = now + 2500; invulnUntil = now + 300; } // mid-air ok
       else if (pu.userData.type==='magnet'){ magnetUntil = now + 5000; }
       scene.remove(pu); powerups.splice(i,1);
     }
   }
 
+  // Speed ramp + HUD
   speed = Math.min(settings.max, speed + settings.ramp * dt);
   scoreEl.textContent = score;
   timeEl.textContent  = ((now - startTime)/1000).toFixed(1);
   spdEl.textContent   = speed.toFixed(2);
 }
+
 function render(dt){
   const k = 1 - Math.exp(-settings.camFollow * dt);
   const target = new THREE.Vector3(player.position.x*0.5, 3.3, 7);
@@ -618,6 +613,7 @@ function render(dt){
   camera.lookAt(player.position.x, 0.8, player.position.z - 2);
   renderer.render(scene, camera);
 }
+
 let last = performance.now();
 function loop(now){ const dt = Math.min(0.05, (now - last)/1000); last = now; update(dt); render(dt); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
@@ -630,4 +626,5 @@ addEventListener('resize', () => {
 </script>
 </body>
 </html>
+
 
