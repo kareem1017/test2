@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-<title>Runner 3D — Ball + Moving Obstacles + Dash/Shield/Magnet</title>
+<title>Runner 3D — Visibility + Pro Power-ups</title>
 <style>
   :root { --bg:#0b0f14; --fg:#e5e7eb; --panel:#111827; --glass:rgba(0,0,0,.55); --accent:#2563eb; --muted:#9ca3af; }
   html, body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:14px system-ui,Segoe UI,Roboto; overflow:hidden }
@@ -24,7 +24,7 @@
   #mobileControls { position:fixed; bottom:20px; width:100%; display:flex; justify-content:space-between; pointer-events:none; z-index:12 }
   .mcBtn { background:rgba(0,0,0,0.45); padding:30px; border-radius:50%; pointer-events:auto; font-size:28px; color:white; user-select:none; }
 
-  /* Leaderboard dock (always visible) */
+  /* Leaderboard dock */
   #leaderDock {
     position:fixed; top:0; right:0; width:240px; height:100%;
     background:rgba(0,0,0,.35); backdrop-filter: blur(6px);
@@ -50,9 +50,8 @@
   <button id="pauseBtn" class="topBtn">Pause</button>
   <button id="openSettingsBtn" class="topBtn">Settings</button>
 </div>
-<div id="hint">Swipe L/R to change lanes, swipe ↑ to jump • Or use the big buttons • Avoid red capsules • Collect green orbs</div>
+<div id="hint">Swipe L/R or use buttons • Swipe ↑ / Space to jump • Avoid red capsules • Collect green orbs</div>
 
-<!-- Always-on Leaderboard -->
 <aside id="leaderDock">
   <div id="playerNameDisplay"></div>
   <h3>Top Scores</h3>
@@ -107,33 +106,33 @@
     <div>
       <label>Player Name <input id="playerNameInp" type="text" maxlength="24" placeholder="Your name"></label>
 
-      <label>Base Speed (u/s) <span><output id="baseOut">12.0</output></span></label>
-      <input id="base" type="range" min="10.0" max="60.0" step="0.5" value="12.0">
+      <label>Base Speed (u/s) <span><output id="baseOut">18.0</output></span></label>
+      <input id="base" type="range" min="10.0" max="60.0" step="0.5" value="18.0">
 
-      <label>Speed Ramp (u/s²) <span><output id="rampOut">0.40</output></span></label>
-      <input id="ramp" type="range" min="0.00" max="3.00" step="0.05" value="0.40">
+      <label>Speed Ramp (u/s²) <span><output id="rampOut">1.70</output></span></label>
+      <input id="ramp" type="range" min="0.00" max="3.00" step="0.05" value="1.70">
 
-      <label>Max Speed (u/s) <span><output id="maxOut">35.0</output></span></label>
-      <input id="max" type="range" min="20.0" max="60.0" step="0.5" value="35.0">
+      <label>Max Speed (u/s) <span><output id="maxOut">40.0</output></span></label>
+      <input id="max" type="range" min="20.0" max="60.0" step="0.5" value="40.0">
 
-      <label>Gravity (u/s²) <span><output id="gravOut">-18</output></span></label>
-      <input id="grav" type="range" min="-40" max="-5" step="1" value="-18">
+      <label>Gravity (u/s²) <span><output id="gravOut">-21</output></span></label>
+      <input id="grav" type="range" min="-40" max="-5" step="1" value="-21">
 
       <label>Jump Strength (u/s) <span><output id="jumpOut">10.8</output></span></label>
       <input id="jump" type="range" min="6.0" max="20.0" step="0.1" value="10.8">
 
-      <label>Spawn Density (spawns/sec) <span><output id="densOut">0.30</output></span></label>
-      <input id="dens" type="range" min="0.00" max="2.50" step="0.02" value="0.30">
+      <label>Spawn Density (spawns/sec) <span><output id="densOut">1.46</output></span></label>
+      <input id="dens" type="range" min="0.00" max="2.50" step="0.02" value="1.46">
 
-      <label>Grace Period (seconds) <span><output id="graceOut">2.5</output></span></label>
-      <input id="grace" type="range" min="0.0" max="5.0" step="0.1" value="2.5">
+      <label>Grace Period (seconds) <span><output id="graceOut">1.7</output></span></label>
+      <input id="grace" type="range" min="0.0" max="5.0" step="0.1" value="1.7">
 
       <label>Camera Follow (per s) <span><output id="camOut">6.0</output></span></label>
       <input id="cam" type="range" min="1.0" max="12.0" step="0.5" value="6.0">
 
-      <label><span>Only collide when grounded</span><input id="colGround" type="checkbox" checked></label>
+      <label><span>Only collide when grounded</span><input id="colGround" type="checkbox"></label>
     </div>
-    <p class="note">Most settings apply immediately. Grace re-applies on restart. Name is saved to localStorage.</p>
+    <p class="note">Most settings apply immediately. Grace re-applies on restart. Name saved to localStorage.</p>
     <div class="row">
       <button id="settingsSave">Save</button>
       <button id="settingsClose" class="ghost">Close</button>
@@ -166,18 +165,18 @@
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
-/* --------- Storage & settings --------- */
-const LB_KEY = 'runner_lb_v6';
+/* ---------- Storage & settings ---------- */
+const LB_KEY = 'runner_lb_v8';
 const NAME_KEY = 'runner_name_v1';
-const ST_KEY = 'runner_settings_v6';
+const ST_KEY = 'runner_settings_v8';
 
 const DEFAULTS = {
-  base: 12.0, ramp: 0.40, max: 35.0,
-  gravity: -18, jump: 10.8,
-  density: 0.30,
-  grace: 2.5,
+  base: 18.0, ramp: 1.70, max: 40.0,
+  gravity: -21, jump: 10.8,
+  density: 1.46,
+  grace: 1.7,
   camFollow: 6.0,
-  collideGroundedOnly: true
+  collideGroundedOnly: false
 };
 
 const $ = id => document.getElementById(id);
@@ -209,7 +208,7 @@ outBind(base,baseOut,1); outBind(ramp,rampOut,2); outBind(max,maxOut,1);
 outBind(grav,gravOut,0); outBind(jump,jumpOut,1); outBind(dens,densOut,2);
 outBind(grace,graceOut,1); outBind(cam,camOut,1);
 
-/* --------- Leaderboard --------- */
+/* ---------- Leaderboard ---------- */
 const leaderList = $('leaderList');
 function getLB(){ return JSON.parse(localStorage.getItem(LB_KEY)||'[]'); }
 function pushLB(name,score){ const lb=getLB(); lb.push({name,score,at:Date.now()}); lb.sort((a,b)=>b.score-a.score); localStorage.setItem(LB_KEY, JSON.stringify(lb.slice(0,5))); renderLB(); }
@@ -218,7 +217,7 @@ function renderLB(){
   leaderList.innerHTML = lb.slice(0,5).map(x=>`<li><span class="name">${(x.name||'Anon')}</span>: ${x.score}</li>`).join('');
 }
 
-/* --------- Name handling --------- */
+/* ---------- Name ---------- */
 function refreshNameDisplay(){
   const n = localStorage.getItem(NAME_KEY)||'';
   $('playerNameDisplay').textContent = n ? `Player: ${n}` : 'Player: (not set)';
@@ -235,7 +234,7 @@ $('nameSave').onclick = ()=>{
 };
 refreshNameDisplay(); renderLB();
 
-/* --------- Three.js --------- */
+/* ---------- Three.js ---------- */
 const canvas = $('webgl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: innerWidth > 768 });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -243,121 +242,187 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x0b0f14, 1);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
+/* Softer fog so you see ahead */
+scene.fog = new THREE.FogExp2(0x0b0f14, 0.028);
+
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 300);
 camera.position.set(0, 3.3, 7);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+/* Brighter, more readable lighting */
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-dir.position.set(5, 8, 6); scene.add(dir);
+dir.position.set(6, 10, 8); scene.add(dir);
+/* Rim light from front so obstacles “read” */
+const rim = new THREE.PointLight(0xff5555, 0.8, 100, 2.0);
+rim.position.set(0, 3, 6); scene.add(rim);
 
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(160, 36), new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 1 }));
+/* Bigger floor so horizon exists */
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(260, 60),
+  new THREE.MeshStandardMaterial({ color: 0x0f1420, roughness: 0.95, metalness:0.05 })
+);
 floor.rotation.x = -Math.PI/2; scene.add(floor);
 
-/* --------- Player: BALL --------- */
+/* ---------- Player: BALL ---------- */
 const R = 0.5;
-const player = new THREE.Mesh(new THREE.SphereGeometry(R, 28, 18), new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness:.2, roughness:.45 }));
+const player = new THREE.Mesh(
+  new THREE.SphereGeometry(R, 28, 18),
+  new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness:.45, roughness:.35, emissive:0x0a1e44, emissiveIntensity:.35 })
+);
 player.position.set(0, R, 0); scene.add(player);
 
-/* --------- Entities & materials --------- */
-const obstacles=[], pickups=[], powerups=[];
-const capGeo = new THREE.CapsuleGeometry(0.5, 0.9, 6, 12); // nicer obstacle
-const capMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive:0x220000, emissiveIntensity:.5, roughness:.45 });
+/* ---------- Entities & materials ---------- */
+const obstacles=[], pickups=[], powerups=[], halos=[], labels=[];
+/* Capsule with “fake outline” (scaled shell) for visibility */
+const capGeo = new THREE.CapsuleGeometry(0.5, 1.0, 10, 16);
+const capMat = new THREE.MeshStandardMaterial({ color: 0xff2e2e, emissive:0x390707, emissiveIntensity:.9, metalness:.35, roughness:.25 });
+function makeCapsule(){
+  const root = new THREE.Group();
+  const body = new THREE.Mesh(capGeo, capMat);
+  const shell = new THREE.Mesh(capGeo, new THREE.MeshBasicMaterial({ color: 0x000000, wireframe:true, opacity:0.35, transparent:true }));
+  shell.scale.set(1.08,1.08,1.08);
+  root.add(body); root.add(shell);
+  root.userData.body = body; // for collisions
+  return root;
+}
 
-const orbGeo = new THREE.SphereGeometry(0.35, 24, 16);
-const orbMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive:0x0a2, emissiveIntensity: .65 });
+const orbGeo = new THREE.SphereGeometry(0.38, 24, 16);
+const orbMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive:0x0a2, emissiveIntensity: .95, metalness:.25, roughness:.35 });
 
-const shieldGeo = new THREE.TorusGeometry(0.5, 0.12, 16, 40); // halo
-const shieldMat = new THREE.MeshStandardMaterial({ color: 0x93c5fd, emissive:0x1a2a5f, emissiveIntensity:.9, metalness:.3, roughness:.35 });
+/* Power-up meshes */
+const shieldGeo = new THREE.TorusGeometry(0.52, 0.10, 18, 48);
+const shieldMat = new THREE.MeshStandardMaterial({ color: 0x93c5fd, emissive:0x203a7a, emissiveIntensity:.95, metalness:.55, roughness:.25 });
+const dashGeo   = new THREE.ConeGeometry(0.36, 0.9, 24);
+const dashMat   = new THREE.MeshStandardMaterial({ color: 0x9b5cf0, emissive:0x3a1766, emissiveIntensity:.95, metalness:.45, roughness:.3 });
+const magnetGeo = new THREE.TorusGeometry(0.55, 0.12, 20, 60, Math.PI);
+const magnetMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive:0x4b2d00, emissiveIntensity:.95, metalness:.5, roughness:.3 });
 
-const dashGeo = new THREE.ConeGeometry(0.42, 0.9, 16);          // arrow head
-const dashMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, emissive:0x3a1766, emissiveIntensity:.9 });
+/* Star halo + label sprites (canvas textures) */
+function makeHaloSprite(size=1.8, color='#ffd166'){
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(128,128,20, 128,128,120);
+  grad.addColorStop(0, color+'dd'); grad.addColorStop(0.35, color+'55'); grad.addColorStop(1, '#00000000');
+  g.fillStyle = grad; g.beginPath(); g.arc(128,128,120,0,Math.PI*2); g.fill();
+  // star spokes
+  g.globalCompositeOperation='lighter';
+  g.strokeStyle = color; g.lineWidth=3; 
+  for(let i=0;i<5;i++){
+    const a = (i/5)*Math.PI*2;
+    const x = 128 + Math.cos(a)*110, y=128 + Math.sin(a)*110;
+    g.beginPath(); g.moveTo(128,128); g.lineTo(x,y); g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c); tex.transparent=true;
+  const mat = new THREE.SpriteMaterial({ map: tex, depthWrite:false, depthTest:true, transparent:true, opacity:0.8 });
+  const spr = new THREE.Sprite(mat); spr.scale.set(size, size, 1);
+  return spr;
+}
+function makeLabelSprite(text='★', color='#ffffff'){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  g.font = '64px system-ui,Segoe UI,Roboto'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillStyle = color; g.shadowColor=color; g.shadowBlur=18;
+  g.fillText(text, 128, 64);
+  const tex = new THREE.CanvasTexture(c); tex.transparent=true;
+  const mat = new THREE.SpriteMaterial({ map: tex, depthWrite:false, transparent:true });
+  const spr = new THREE.Sprite(mat); spr.scale.set(1.2, 0.6, 1);
+  return spr;
+}
 
-const magnetGeo = new THREE.TorusGeometry(0.55, 0.12, 14, 50, Math.PI); // horseshoe arc
-const magnetMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive:0x4b2d00, emissiveIntensity:.8 });
-
-/* --------- Spawning --------- */
-let lastSpawnZ = -28;
+/* ---------- Spawning ---------- */
+let lastSpawnZ = -60; // farther so they appear early
 function spawnLine(z) {
-  if (z - lastSpawnZ > -8) z = lastSpawnZ - 8;
+  if (z - lastSpawnZ > -10) z = lastSpawnZ - 10;
   lastSpawnZ = z;
 
   const lanes = [-2, 0, 2];
 
-  // 80% moving, 30% lane-swap, 50% bobbing
-  const moving = Math.random() < 0.8;
-  const laneSwap = Math.random() < 0.3;
-  const bobbing = Math.random() < 0.5;
+  // time-based difficulty scaling: more motion & more pieces
+  const t = Math.max(0, (performance.now() - startTime)/1000);
+  const diff = Math.min(1.5, 0.6 + t/40); // 0.6 -> 1.5 over ~60s
 
-  const count = 1 + Math.floor(Math.random()*2); // 1..2 obstacles
+  const baseCount = (Math.random() < 0.5 ? 1 : 2);
+  const extra = Math.random() < Math.min(0.35*diff, 0.7) ? 1 : 0; // sometimes a 3rd
+  const count = Math.min(lanes.length, baseCount + extra);
+
   for (let i=0; i<count; i++) {
     const lane = lanes.splice(Math.floor(Math.random()*lanes.length),1)[0];
-    const o = new THREE.Mesh(capGeo, capMat);
-    o.position.set(lane, 0.95, z);
+    const o = makeCapsule();
+    o.position.set(lane, 1.0, z);
 
+    // motion profiles
     o.userData.phase = Math.random()*Math.PI*2;
-    if (moving) {
-      o.userData.vxAmp = 0.8 + Math.random()*1.0;  // more lateral sway
-      o.userData.vxW   = 1.0 + Math.random()*1.6;  // speed
+    if (Math.random() < 0.85) {
+      o.userData.vxAmp = (0.8 + Math.random()*1.4) * diff;
+      o.userData.vxW   = 0.9 + Math.random()*1.6;
     }
-    if (bobbing) {
-      o.userData.vyAmp = 0.12 + Math.random()*0.18;
-      o.userData.vyW   = 1.0 + Math.random()*1.4;
+    if (Math.random() < 0.55) {
+      o.userData.vyAmp = 0.12 + Math.random()*0.2;
+      o.userData.vyW   = 1.0 + Math.random()*1.2;
     }
-    if (laneSwap) {
-      o.userData.swapTo = (Math.random()<0.5 ? -2 : 2); // drift toward edge lane
-      o.userData.swapSpeed = 0.3 + Math.random()*0.5;
+    if (Math.random() < 0.35) {
+      o.userData.swapTo = (Math.random()<0.5 ? -2 : 2);
+      o.userData.swapSpeed = (0.35 + Math.random()*0.55) * diff;
     }
 
     obstacles.push(o); scene.add(o);
   }
 
-  // reward/powerups
+  // rewards / power-ups (rarer)
   if (lanes.length > 0) {
     const lane = lanes[Math.floor(Math.random()*lanes.length)];
     const roll = Math.random();
-    if (roll < 0.55) {
+    if (roll < 0.60) { // orbs most of the time
       const p = new THREE.Mesh(orbGeo, orbMat);
-      p.position.set(lane, 0.5, z - 3); pickups.push(p); scene.add(p);
-    } else if (roll < 0.75) {
+      p.position.set(lane, 0.6, z - 3); pickups.push(p); scene.add(p);
+    } else if (roll < 0.64) { // 4% shield
       const s = new THREE.Mesh(shieldGeo, shieldMat);
-      s.rotation.x = Math.PI/2;
-      s.position.set(lane, 0.6, z - 3); s.userData.type='shield'; powerups.push(s); scene.add(s);
-    } else if (roll < 0.90) {
-      const s = new THREE.Mesh(dashGeo, dashMat);   // DASH
-      s.position.set(lane, 0.6, z - 3); s.userData.type='dash'; powerups.push(s); scene.add(s);
-    } else {
+      s.rotation.x = Math.PI/2; s.position.set(lane, 0.7, z - 3); s.userData.type='shield';
+      addHaloAndLabel(s, '#7cc0ff', '🛡'); powerups.push(s); scene.add(s);
+    } else if (roll < 0.68) { // 4% dash
+      const d = new THREE.Mesh(dashGeo, dashMat);
+      d.position.set(lane, 0.65, z - 3); d.userData.type='dash';
+      addHaloAndLabel(d, '#c9a7ff', '⚡'); powerups.push(d); scene.add(d);
+    } else if (roll < 0.72) { // 4% magnet
       const m = new THREE.Mesh(magnetGeo, magnetMat);
-      m.rotation.z = Math.PI; // open side down
-      m.position.set(lane, 0.65, z - 3); m.userData.type='magnet'; powerups.push(m); scene.add(m);
-    }
+      m.rotation.z = Math.PI; m.position.set(lane, 0.7, z - 3); m.userData.type='magnet';
+      addHaloAndLabel(m, '#ffd166', '🧲'); powerups.push(m); scene.add(m);
+    } // else empty lane for breathing room
   }
 }
 
-/* --------- Helpers --------- */
+/* attach halo/label for power-ups */
+function addHaloAndLabel(obj, color, emoji){
+  const halo = makeHaloSprite(2.1, color);
+  halo.position.set(0, 0.05, 0);
+  const label = makeLabelSprite(emoji, '#ffffff');
+  label.position.set(0, 0.9, 0);
+  obj.add(halo); obj.add(label);
+  halos.push(halo); labels.push(label);
+}
+
+/* ---------- Helpers ---------- */
 const scoreEl=$('score'), timeEl=$('time'), spdEl=$('spd'), shieldHud=$('shieldHud');
 const dashT=$('dashT'), magnetT=$('magnetT');
-const EPS=1e-6;
 
-/* Tight collision: ball (radius R) vs capsule approx
-   We check XZ distance vs capsule radius, and Y difference vs capsule half-height.
-*/
-function hitBallCapsule(ball, cap) {
-  const capR = 0.5;              // capsule radius
-  const capHalf = 0.9*0.5 + 0.5; // roughly half-height (cylinder + hemis)
-  const dx = ball.x - cap.x, dz = ball.z - cap.z;
+function hitBallCapsule(ball, capGroup) {
+  const cap = capGroup.userData.body || capGroup; // actual mesh
+  const capR = 0.5, capHalf = 1.0;
+  const dx = ball.x - cap.position.x - capGroup.position.x;
+  const dz = ball.z - cap.position.z - capGroup.position.z;
   const distXZ = Math.hypot(dx, dz);
-  const touchXZ = distXZ < (capR + R * 0.95);
-  const dy = Math.abs(ball.y - cap.y);
-  const touchY = dy < capHalf + R*0.6;
+  const touchXZ = distXZ < (capR + R*0.98);
+  const dy = Math.abs(ball.y - (cap.position.y + capGroup.position.y));
+  const touchY = dy < capHalf + R*0.65;
   return touchXZ && touchY;
 }
 
-/* --------- Game state --------- */
+/* ---------- Game state ---------- */
 let lane=0, vy=0, speed=settings.base, score=0, running=false, paused=false;
-let startTime=0, invulnUntil=0, spawnAcc=0;
+let startTime=performance.now(), invulnUntil=0, spawnAcc=0;
 let shield=0, dashUntil=0, magnetUntil=0;
 
-/* --------- Input --------- */
+/* ---------- Input ---------- */
 const keys = new Set();
 addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','Escape'].includes(e.code)) e.preventDefault();
@@ -383,7 +448,7 @@ addEventListener('touchend', e => {
   }
 }, {passive:true});
 
-/* --------- Buttons --------- */
+/* ---------- Buttons ---------- */
 $('startBtn').onclick = startGame;
 $('restartBtn').onclick = startGame;
 $('goRestartBtn').onclick = startGame;
@@ -399,11 +464,11 @@ $('goSettingsBtn').onclick = () => { syncSettingsToUI(); $('settings').style.dis
 $('settingsSave').onclick = () => { saveSettingsFromUI(); $('settings').style.display='none'; };
 $('settingsClose').onclick = () => { $('settings').style.display='none'; };
 
-/* --------- Flow --------- */
+/* ---------- Flow ---------- */
 function resetWorld(){
   for (const arr of [obstacles,pickups,powerups]) while (arr.length) scene.remove(arr.pop());
-  lastSpawnZ = -28;
-  [-16,-24,-32,-40,-48].forEach(z=>spawnLine(z));
+  lastSpawnZ = -80; // even farther for visibility at start
+  for (let z=-40; z>=-140; z-=12) spawnLine(z);
   lane=0; vy=0; speed=settings.base; score=0; shield=0; shieldHud.textContent='0';
   dashUntil=0; magnetUntil=0; dashT.textContent='0.0'; magnetT.textContent='0.0';
   startTime = performance.now();
@@ -426,7 +491,7 @@ function endGame(){
 }
 function setPaused(p){ paused=p; $('pause').style.display = p ? 'flex' : 'none'; }
 
-/* --------- Update / Render --------- */
+/* ---------- Update / Render ---------- */
 function update(dt){
   if (!running || paused) return;
   const now = performance.now();
@@ -450,7 +515,7 @@ function update(dt){
   // obstacle motion (wiggle + bob + optional lane drift)
   for (const o of obstacles){
     const p = o.userData;
-    const baseY = 0.95;
+    const baseY = 1.0;
     if (p.vxAmp) o.position.x += Math.sin(now/1000*p.vxW + p.phase) * p.vxAmp * dt;
     if (p.vyAmp) o.position.y = baseY + Math.sin(now/1000*p.vyW + p.phase) * p.vyAmp;
     if (p.swapTo !== undefined) {
@@ -467,7 +532,7 @@ function update(dt){
   magnetT.textContent = Math.max(0, (magnetUntil-now)/1000).toFixed(1);
 
   // world forward
-  const worldFactor = dashActive ? 1.5 : 1.0;
+  const worldFactor = dashActive ? 1.25 : 1.0;
   obstacles.forEach(o => o.position.z += speed * worldFactor * dt);
   pickups.forEach(p   => p.position.z += speed * worldFactor * dt);
   powerups.forEach(pu => pu.position.z += speed * worldFactor * dt);
@@ -480,39 +545,39 @@ function update(dt){
       const dz = (player.position.z - 1) - p.position.z;
       const dist = Math.hypot(dx,dy,dz);
       if (dist < 4){
-        const pull = (4 - dist) * 2.5;
-        p.position.x += (dx/(dist+EPS)) * pull * dt;
-        p.position.y += (dy/(dist+EPS)) * pull * dt;
-        p.position.z += (dz/(dist+EPS)) * pull * dt;
+        const pull = (4 - dist) * 2.3;
+        p.position.x += (dx/(dist+1e-6)) * pull * dt;
+        p.position.y += (dy/(dist+1e-6)) * pull * dt;
+        p.position.z += (dz/(dist+1e-6)) * pull * dt;
       }
     }
   }
 
   // cleanup
-  const clean = arr => { for (let i=arr.length-1;i>=0;i--) if (arr[i].position.z > 10) { scene.remove(arr[i]); arr.splice(i,1); } };
-  for (let i=obstacles.length-1;i>=0;i--) if (obstacles[i].position.z > 10){ scene.remove(obstacles[i]); obstacles.splice(i,1); score+=5; }
+  const clean = arr => { for (let i=arr.length-1;i>=0;i--) if (arr[i].position.z > 12) { scene.remove(arr[i]); arr.splice(i,1); } };
+  for (let i=obstacles.length-1;i>=0;i--) if (obstacles[i].position.z > 12){ scene.remove(obstacles[i]); obstacles.splice(i,1); score+=5; }
   clean(pickups); clean(powerups);
 
-  // spawn pacing with scaling difficulty
-  spawnAcc += dt * (1 + Math.min(1.2, ((now - startTime)/1000) / 50));
+  // spawn pacing + difficulty over time (more rows as time increases)
+  spawnAcc += dt * (1 + Math.min(1.6, ((now - startTime)/1000) / 35)); // ramps quicker than before
   const expected = settings.density * spawnAcc;
   if (expected >= 1) {
-    for (let i=0; i<Math.floor(expected); i++) spawnLine(-36 - Math.random()*12);
+    for (let i=0; i<Math.floor(expected); i++) spawnLine(-60 - Math.random()*30);
     spawnAcc = expected - Math.floor(expected);
   }
 
-  // collisions — grounded-only optional; no ghosting; dash grants invuln
+  // collisions — instant death unless shield (dash avoids death)
   const grounded = player.position.y <= (R + 0.2);
   const canDie = now > invulnUntil && (!settings.collideGroundedOnly || grounded) && !dashActive;
 
   if (canDie){
     for (let i=obstacles.length-1;i>=0;i--){
       const o=obstacles[i];
-      if (hitBallCapsule(player.position, o.position)) {
+      if (hitBallCapsule(player.position, o)) {
         if (shield > 0){
           shield--; shieldHud.textContent=String(shield);
           scene.remove(o); obstacles.splice(i,1);
-          invulnUntil = now + 300; // very short post-hit buffer only for shield pop
+          invulnUntil = now + 150;
         } else {
           return endGame();
         }
@@ -535,8 +600,8 @@ function update(dt){
     const dz = player.position.z - pu.position.z;
     if (Math.hypot(dx,dy,dz) < (R + 0.7)){
       if (pu.userData.type==='shield'){ shield++; shieldHud.textContent=String(shield); }
-      else if (pu.userData.type==='dash'){ dashUntil = now + 3500; }
-      else if (pu.userData.type==='magnet'){ magnetUntil = now + 6000; }
+      else if (pu.userData.type==='dash'){ dashUntil = now + 2500; }
+      else if (pu.userData.type==='magnet'){ magnetUntil = now + 5000; }
       scene.remove(pu); powerups.splice(i,1);
     }
   }
@@ -566,7 +631,7 @@ function loop(now){
 }
 requestAnimationFrame(loop);
 
-/* --------- Resize --------- */
+/* ---------- Resize ---------- */
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
